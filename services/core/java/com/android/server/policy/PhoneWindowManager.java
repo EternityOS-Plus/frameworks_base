@@ -609,7 +609,8 @@ public class PhoneWindowManager implements WindowManagerPolicy {
     boolean mHavePendingMediaKeyRepeatWithWakeLock;
 
     private int mCurrentUserId;
-
+    private boolean haveEnableGesture = false;
+    
     private AssistUtils mAssistUtils;
 
     // Maps global key codes to the components that will handle them.
@@ -654,6 +655,8 @@ public class PhoneWindowManager implements WindowManagerPolicy {
     private static final int MSG_LAUNCH_ASSIST = 23;
     private static final int MSG_RINGER_TOGGLE_CHORD = 24;
 
+    private SwipeToScreenshotListener mSwipeToScreenshot;
+    
     // Custom additions
     private static final int MSG_CAMERA_LONG_PRESS = 101;
 
@@ -844,6 +847,9 @@ public class PhoneWindowManager implements WindowManagerPolicy {
             if (mLineageHardware.isSupported(LineageHardwareManager.FEATURE_KEY_SWAP)) {
                 resolver.registerContentObserver(Settings.Secure.getUriFor(
                         Settings.Secure.SWAP_CAPACITIVE_KEYS), false, this,
+                        UserHandle.USER_ALL);
+                resolver.registerContentObserver(Settings.System.getUriFor(
+                        Settings.System.THREE_FINGER_GESTURE), false, this,
                         UserHandle.USER_ALL);
             }
 
@@ -1851,6 +1857,12 @@ public class PhoneWindowManager implements WindowManagerPolicy {
         }
 
         mHandler = new PolicyHandler();
+        mSwipeToScreenshot = new SwipeToScreenshotListener(context, new SwipeToScreenshotListener.Callbacks() {
+            @Override
+            public void onSwipeThreeFinger() {
+                mHandler.post(mScreenshotRunnable);
+            }
+        });
         mWakeGestureListener = new MyWakeGestureListener(mContext, mHandler);
         mSettingsObserver = new SettingsObserver(mHandler);
         mModifierShortcutManager = new ModifierShortcutManager(context);
@@ -2259,6 +2271,18 @@ public class PhoneWindowManager implements WindowManagerPolicy {
         mSingleKeyGestureDetector.addRule(new BackKeyRule(KEY_LONGPRESS));
     }
 
+    private void enableSwipeThreeFingerGesture(boolean enable){
+        if (enable) {
+            if (haveEnableGesture) return;
+            haveEnableGesture = true;
+            mWindowManagerFuncs.registerPointerEventListener(mSwipeToScreenshot, DEFAULT_DISPLAY);
+        } else {
+            if (!haveEnableGesture) return;
+            haveEnableGesture = false;
+            mWindowManagerFuncs.unregisterPointerEventListener(mSwipeToScreenshot, DEFAULT_DISPLAY);
+        }
+    }
+    
     private void updateKeyAssignments() {
         int activeHardwareKeys = mDeviceHardwareKeys;
 
@@ -2392,6 +2416,11 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                 mRingerToggleChord = Settings.Secure.VOLUME_HUSH_OFF;
             }
 
+            //Three Finger Gesture
+            boolean threeFingerGesture = Settings.System.getIntForUser(resolver,
+                    Settings.System.THREE_FINGER_GESTURE, 0, UserHandle.USER_CURRENT) == 1;
+            enableSwipeThreeFingerGesture(threeFingerGesture);
+            
             mWakeOnHomeKeyPress = (Settings.System.getIntForUser(resolver,
                     Settings.System.HOME_WAKE_SCREEN, 1, UserHandle.USER_CURRENT) == 1)
                     && ((mDeviceHardwareWakeKeys & KEY_MASK_HOME) != 0);
