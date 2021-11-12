@@ -5391,6 +5391,12 @@ public final class Settings {
         public static final String TOUCHSCREEN_GESTURE_HAPTIC_FEEDBACK = "touchscreen_gesture_haptic_feedback";
 
         /**
+         * Whether to combine wifi and signal icons
+         * @hide
+         */
+        public static final String COMBINED_STATUS_BAR_SIGNAL_ICONS = "combined_status_bar_signal_icons";
+        
+        /**
          * Whether the HighTouchPollingRate is activated or not.
          * 0 = off, 1 = on
          * @hide
@@ -10546,13 +10552,6 @@ public final class Settings {
          */
         @Readable
         public static final String SCREEN_OFF_UDFPS_ENABLED = "screen_off_udfps_enabled";
-
-        /**
-         * Whether to disable qs on secure lockscreen.
-         * Default 0
-         * @hide
-         */
-        public static final String SECURE_LOCKSCREEN_QS_DISABLED = "secure_lockscreen_qs_disabled";
 
         /**
          * These entries are considered common between the personal and the managed profile,
