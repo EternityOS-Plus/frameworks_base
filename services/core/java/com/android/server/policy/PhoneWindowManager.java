@@ -653,9 +653,6 @@ public class PhoneWindowManager implements WindowManagerPolicy {
     private static final int MSG_HANDLE_ALL_APPS = 22;
     private static final int MSG_LAUNCH_ASSIST = 23;
     private static final int MSG_RINGER_TOGGLE_CHORD = 24;
-
-    private SwipeToScreenshotListener mSwipeToScreenshot;
-    private boolean mSwipeToScreenshotEnabled = false;
     
     // Custom additions
     private static final int MSG_CAMERA_LONG_PRESS = 101;
@@ -849,7 +846,7 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                         Settings.Secure.SWAP_CAPACITIVE_KEYS), false, this,
                         UserHandle.USER_ALL);
                 resolver.registerContentObserver(Settings.System.getUriFor(
-                        Settings.System.THREE_FINGER_GESTURE), false, this,
+                        Settings.System.SWIPE_TO_SCREENSHOT), false, this,
                         UserHandle.USER_ALL);
             }
 
@@ -888,6 +885,10 @@ public class PhoneWindowManager implements WindowManagerPolicy {
         }
     };
 
+    // Swipe to screenshot
+    private SwipeToScreenshotListener mSwipeToScreenshot;
+    private boolean haveEnableGesture = false;
+    
     private void handleRingerChordGesture() {
         if (mRingerToggleChord == VOLUME_HUSH_OFF) {
             return;
@@ -1856,9 +1857,21 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                     context, minHorizontal, maxHorizontal, minVertical, maxVertical, maxRadius);
         }
 
+        mSwipeToScreenshot = new SwipeToScreenshotListener(context, new SwipeToScreenshotListener.Callbacks() {
+            @Override
+            public void onSwipeThreeFinger() {
+                IDreamManager dreamManager = getDreamManager();
+                try {
+                    if (dreamManager != null && dreamManager.isDreaming()) {
+                        return;
+                    }
+                } catch (RemoteException ignored) {
+                }
+                mHandler.post(mScreenshotRunnable);
+            }
+        });
+
         mHandler = new PolicyHandler();
-         mSwipeToScreenshot = new SwipeToScreenshotListener(mContext,
-            () -> mHandler.post(mScreenshotRunnable));
         mWakeGestureListener = new MyWakeGestureListener(mContext, mHandler);
         mWakeGestureListener = new MyWakeGestureListener(mContext, mHandler);
         mSettingsObserver = new SettingsObserver(mHandler);
@@ -2267,17 +2280,6 @@ public class PhoneWindowManager implements WindowManagerPolicy {
         mSingleKeyGestureDetector.addRule(new PowerKeyRule(powerKeyGestures));
         mSingleKeyGestureDetector.addRule(new BackKeyRule(KEY_LONGPRESS));
     }
-
-    private void enableSwipeThreeFingerGesture(boolean enabled) {
-        if (mSwipeToScreenshotEnabled == enabled) return;
-        mSwipeToScreenshotEnabled = enabled;
-        if (mSwipeToScreenshotEnabled) {
-            mWindowManagerFuncs.registerPointerEventListener(mSwipeToScreenshot, DEFAULT_DISPLAY);
-        } else {
-            
-            mWindowManagerFuncs.unregisterPointerEventListener(mSwipeToScreenshot, DEFAULT_DISPLAY);
-        }
-    }
     
     private void updateKeyAssignments() {
         int activeHardwareKeys = mDeviceHardwareKeys;
@@ -2372,6 +2374,18 @@ public class PhoneWindowManager implements WindowManagerPolicy {
         }
     }
 
+    private void enableSwipeThreeFingerGesture(boolean enable){
+        if (enable) {
+            if (haveEnableGesture) return;
+            haveEnableGesture = true;
+            mWindowManagerFuncs.registerPointerEventListener(mSwipeToScreenshot, DEFAULT_DISPLAY);
+        } else {
+            if (!haveEnableGesture) return;
+            haveEnableGesture = false;
+            mWindowManagerFuncs.unregisterPointerEventListener(mSwipeToScreenshot, DEFAULT_DISPLAY);
+        }
+    }
+    
     public void updateSettings() {
         ContentResolver resolver = mContext.getContentResolver();
         boolean updateRotation = false;
@@ -2411,12 +2425,6 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                     .getBoolean(com.android.internal.R.bool.config_volumeHushGestureEnabled)) {
                 mRingerToggleChord = Settings.Secure.VOLUME_HUSH_OFF;
             }
-
-            //Three Finger Gesture
-             final boolean threeFingerGestureEnabled = Settings.System.getIntForUser(resolver,
-                    Settings.System.THREE_FINGER_GESTURE, 0,
-                    UserHandle.USER_CURRENT) == 1;
-            enableSwipeThreeFingerGesture(threeFingerGestureEnabled);
             
             mWakeOnHomeKeyPress = (Settings.System.getIntForUser(resolver,
                     Settings.System.HOME_WAKE_SCREEN, 1, UserHandle.USER_CURRENT) == 1)
@@ -2454,6 +2462,11 @@ public class PhoneWindowManager implements WindowManagerPolicy {
             }
 
             updateKeyAssignments();
+
+             // Three Finger Gesture
+            boolean threeFingerGesture = Settings.System.getIntForUser(resolver,
+                    Settings.System.SWIPE_TO_SCREENSHOT, 0, UserHandle.USER_CURRENT) == 1;
+            enableSwipeThreeFingerGesture(threeFingerGesture);
 
             // use screen off timeout setting as the timeout for the lockscreen
             mLockScreenTimeout = Settings.System.getIntForUser(resolver,
