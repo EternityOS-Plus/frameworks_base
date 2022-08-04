@@ -77,7 +77,9 @@ public class PixelPropsUtils {
             "com.vng.codmvn",
             "com.google.android.apps.recorder",
             "com.google.android.youtube",
-            "com.google.android.dialer", 
+            "com.google.android.dialer",
+            "com.google.android.apps.youtube.kids",
+            "com.google.android.apps.youtube.music"
    };
 
     private static final Map<String, Object> propsToChangeOP8P;
