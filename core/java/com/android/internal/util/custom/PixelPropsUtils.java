@@ -73,7 +73,9 @@ public class PixelPropsUtils {
             "com.activision.callofduty.shooter",
             "com.tencent.tmgp.kr.codm",
             "com.garena.game.codm",
-            "com.vng.codmvn"
+            "com.vng.codmvn",
+            "com.google.android.apps.recorder",
+            "com.google.android.youtube",
     };
 
     private static final Map<String, Object> propsToChangeOP8P;
